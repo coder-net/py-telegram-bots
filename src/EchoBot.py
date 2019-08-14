@@ -1,14 +1,18 @@
 from BaseBot import BaseBot
+from Commands import Commands
 
 
 class EchoBot(BaseBot):
+    commands = Commands()
+
     def __init__(self, token, loop, redis):
         self._redis = redis
-        super().__init__(token, loop)
+        super().__init__(token, loop, self.__class__)
 
     async def _handler(self, msg):
         chat_id = msg['message']['chat']['id']
         next_command = await self._db_next_command(chat_id)
+        func = None
         if 'text' in msg['message']:
             command = msg['message']['text'].split(maxsplit=2)[0]
             func = self.commands.find_command(command)
@@ -29,18 +33,18 @@ class EchoBot(BaseBot):
     async def _db_set_next_command(self, chat_id, command):
         await self._redis.execute('hset', self._token, chat_id, command)
 
-    @BaseBot.commands.command
+    @commands.command
     async def echo(self, msg):
         """return sending text"""
-        return msg['text']
+        return msg['text'],
 
-    @BaseBot.commands.command
+    @commands.command
     async def sticker(self, msg):
         """return sticker `file id`"""
         await self._db_set_next_command(msg['chat']['id'], 'sticker_id')
         return 'Okey. Send me sticker to know its file_id',
 
-    @BaseBot.commands.system_command
+    @commands.system_command
     async def sticker_id(self, msg):
         if 'sticker' in msg:
             await self._db_del_next_command(msg['chat']['id'])

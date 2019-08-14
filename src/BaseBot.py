@@ -5,14 +5,20 @@ from Commands import Commands
 class BaseBot:
     URL = 'https://api.telegram.org/bot{token}/{method}'
     commands = Commands()
+    markdown = {'parse_mode': 'Markdown'}
 
-    def __init__(self, token, loop):
+    def __init__(self, token, loop, cls):
         self._token = token
         self._loop = loop
         self._session = aiohttp.ClientSession()
+        BaseBot._set_required_methods(cls)
 
-    def shutdown(self):
-        self._session.close()
+    def _set_required_methods(cls):
+        cls.start = cls.commands.command(cls.start)
+        cls.help = cls.commands.command(cls.help)
+
+    async def shutdown(self):
+        await self._session.close()
 
     async def handler(self, request):
         msg = await request.json()
@@ -43,19 +49,17 @@ class BaseBot:
         await self._post_request('sendSticker', params=data)
 
     async def unknown(self, msg):
-        file_id = "CAADAgADJQIAAs4XpwtUsH1SVc8NDxYE"  # file_id for sticker
+        file_id = "CAADAgADFQIAAs4Xpwu3KX9oj5ycyBYE"  # file_id for sticker
         await self.send_sticker(msg['chat']['id'], file_id)
         return 'Unknown command. Use /help',
 
-    @commands.command
     async def help(self, msg):
         """get info about bot commands"""
         res = ''
         for command, func in self.commands.commands.items():
             res += f'{command} - _{func.__doc__}_\n'
-        return res, {'parse_mode': 'Markdown'}
+        return res, self.markdown
 
-    @commands.command
     async def start(self, msg):
         """send first message, when user start conversation"""
         res = await self.help(msg)
